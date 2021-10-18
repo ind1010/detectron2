@@ -113,6 +113,7 @@ class StandardRPNHead(nn.Module):
                 self.conv.add_module(f"conv{k}", conv)
                 cur_channels = out_channels
         # 1x1 conv for predicting objectness logits
+        print("Standard RPN Head: testing if edits go through")
         self.objectness_logits = nn.Conv2d(cur_channels, num_anchors, kernel_size=1, stride=1)
         # 1x1 conv for predicting box2box transform deltas
         self.anchor_deltas = nn.Conv2d(cur_channels, num_anchors * box_dim, kernel_size=1, stride=1)
