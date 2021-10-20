@@ -324,6 +324,7 @@ class RPN(nn.Module):
                 anchor. Values are undefined for those anchors not labeled as 1.
         """
         anchors = Boxes.cat(anchors)
+        print('anchors dimension: %d by %d' % (len(anchors), anchors[0].__len__))
 
         gt_boxes = [x.gt_boxes for x in gt_instances]
         image_sizes = [x.image_size for x in gt_instances]

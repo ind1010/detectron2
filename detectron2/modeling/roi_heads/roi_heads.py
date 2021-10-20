@@ -271,6 +271,7 @@ class ROIHeads(torch.nn.Module):
                 matched_idxs, matched_labels, targets_per_image.gt_classes
             )
 
+            print("ROI_haeds.py, label_and_sample_proposals: Went through here")
             # Set target attributes of the sampled proposals:
             proposals_per_image = proposals_per_image[sampled_idxs]
             proposals_per_image.gt_classes = gt_classes
