@@ -10,6 +10,15 @@ from detectron2.layers import ShapeSpec
 from detectron2.structures import Boxes, RotatedBoxes
 from detectron2.utils.registry import Registry
 
+# plotting anchor boxes to find range
+import matplotlib.pyplot as plt
+import matplotlib.patches as patch
+import numpy as np
+import torch
+from PIL import Image
+from torchvision import transforms
+from detectron2.structures import ImageList
+
 ANCHOR_GENERATOR_REGISTRY = Registry("ANCHOR_GENERATOR")
 ANCHOR_GENERATOR_REGISTRY.__doc__ = """
 Registry for modules that creates object detection anchors for feature maps.
@@ -172,6 +181,9 @@ class DefaultAnchorGenerator(nn.Module):
 
             anchors.append((shifts.view(-1, 1, 4) + base_anchors.view(1, -1, 4)).reshape(-1, 4))
 
+        # print("grid sizes", grid_sizes)
+
+        print("anchor_generator.py, DefaultAnchorGenerator, anchor shape:", len(anchors), 'x', anchors[0].size())
         return anchors
 
     def generate_cell_anchors(self, sizes=(32, 64, 128, 256, 512), aspect_ratios=(0.5, 1, 2)):
