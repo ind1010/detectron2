@@ -27,6 +27,7 @@ import torch
 from PIL import Image
 from torchvision import transforms
 from detectron2.structures import ImageList
+import pickle as pkl
 
 RPN_HEAD_REGISTRY = Registry("RPN_HEAD")
 RPN_HEAD_REGISTRY.__doc__ = """
@@ -181,10 +182,17 @@ class StandardRPNHead(nn.Module):
 		"""
 		pred_objectness_logits = []
 		pred_anchor_deltas = []
+		# print('rpn.py, forward, saving feature maps')
+		# fm_list = []
 		for x in features:
 			t = self.conv(x)
+			# fm_list.append(x.to("cpu"))
 			pred_objectness_logits.append(self.objectness_logits(t))
 			pred_anchor_deltas.append(self.anchor_deltas(t))
+
+		# fm_pklfile = open("list_of_feature_maps.pkl", 'wb')
+		# pkl.dump(fm_list, fm_pklfile)
+		# fm_pklfile.close()
 		return pred_objectness_logits, pred_anchor_deltas
 
 
@@ -463,207 +471,13 @@ class RPN(nn.Module):
 		features = [features[f] for f in self.in_features]
 		anchors = self.anchor_generator(features)
 
-		print("head is", self.rpn_head)
 		pred_objectness_logits, pred_anchor_deltas = self.rpn_head(features)
-		print("rpn.py, forward in class RPN: Went through here, possible edit location")
-		# print("shape is", len(pred_objectness_logits), "x", len(pred_objectness_logits[0]), "x", len(pred_objectness_logits[0][0]), "x", len(pred_objectness_logits[0][0][0]))
 		# Transpose the Hi*Wi*A dimension to the middle:
 		pred_objectness_logits = [
 			# (N, A, Hi, Wi) -> (N, Hi, Wi, A) -> (N, Hi*Wi*A)
 			score.permute(0, 2, 3, 1).flatten(1)
 			for score in pred_objectness_logits
 		]
-
-		num_feature_maps = len(anchors)
-		with open('/content/drive/.shortcut-targets-by-id/18zBrqNwnAWKJDMVcLIF8bsGLyzer_SoE/IW/detectron2/detectron2/modeling/proposal_generator/centers.npy', 'rb') as f:
-			centers = np.load(f)
-
-		# print("sizes")
-		# print(len(pred_anchor_deltas))
-		# print(len(pred_anchor_deltas[0]))
-		# print(len(pred_anchor_deltas[0][0]))
-		# print(len(pred_anchor_deltas[0][0][0]))
-		# print(len(pred_anchor_deltas[0][0][0][0]))
-		# print("end sizes")
-
-		# print("a few boxes")
-		# print(anchors[0][0:10,:])
-
-		# fig, ax = plt.subplots(ncols=5, figsize=(35,5))
-		# plt.axis([0,1212,0,800])
-
-		###############################################################
-		# FEATURE MAP 0 (smallest objects)
-		###############################################################
-		n_anchors = len(pred_objectness_logits[0][0])
-		anchor_np = (anchors[0].tensor.to("cpu")).numpy()
-		print("number of anchors:", n_anchors)
-		with open("./original_scores0.npy", 'wb') as f:
-				np.save(f, (pred_objectness_logits[0][0].to("cpu")).numpy())
-		for a in range(n_anchors):
-			x1 = anchor_np[a,0]
-			y1 = anchor_np[a,1]
-			x2 = anchor_np[a,2]
-			y2 = anchor_np[a,3]
-			# rect = patch.Rectangle((x1, y1), x2-x1, y2-y1, linewidth=1, edgecolor='r', facecolor='none')
-			if pred_objectness_logits[0][0][a]<=0:
-				# x1 = anchor_np[a,0]
-				# y1 = anchor_np[a,1]
-				# x2 = anchor_np[a,2]
-				# y2 = anchor_np[a,3]
-				x_center = x1 + (x2-x1)/2
-				y_center = y1 + (y2-y1)/2
-
-				dist = np.linalg.norm(centers-np.array([y_center, x_center]), axis=1)
-				within_range = np.sum(dist<=10) # distance from some preselected center is within 10 pixels
-				if within_range>0:
-					# rect = patch.Rectangle((x1, y1), x2-x1, y2-y1, linewidth=1, edgecolor='r', facecolor='none')
-					# ax[0].add_patch(rect)
-					# print("flipped a logit")
-					pred_objectness_logits[0][0][a] = 5 # problem - may rate it higher than a reasonably selected one - score of 10 did but it also helped prioritize it over small background class objects
-				# x1 = anchors[i].tensor[a,0]
-				# y1 = anchors[i].tensor[a,1]
-				# x2 = anchors[i].tensor[a,2]
-				# y2 = anchors[i].tensor[a,3]
-				# get distances between centers and each anchor
-				# set pred_object_logits to 1 where distance within 100 pixels
-				# print("anchor:", anchors[i][a], "score:", pred_objectness_logits[i][0][a])
-		with open("./new_scores0.npy", 'wb') as f:
-				np.save(f, (pred_objectness_logits[0][0].to("cpu")).numpy())
-		with open("./anchors0.npy", 'wb') as f:
-			np.save(f, (anchors[0].tensor.to("cpu")).numpy())
-
-		###############################################################
-		# FEATURE MAP 1
-		###############################################################
-		n_anchors = len(pred_objectness_logits[1][0])
-		anchor_np = (anchors[1].tensor.to("cpu")).numpy()
-		print("number of anchors:", n_anchors)
-		with open("./original_scores1.npy", 'wb') as f:
-				np.save(f, (pred_objectness_logits[1][0].to("cpu")).numpy())
-		for a in range(n_anchors):
-
-			if pred_objectness_logits[1][0][a]<=0:
-				x1 = anchor_np[a,0]
-				y1 = anchor_np[a,1]
-				x2 = anchor_np[a,2]
-				y2 = anchor_np[a,3]
-				x_center = x1 + (x2-x1)/2
-				y_center = y1 + (y2-y1)/2
-
-				dist = np.linalg.norm(centers-np.array([y_center, x_center]), axis=1)
-				within_range = np.sum(dist<=10)
-				if within_range>0:
-					# rect = patch.Rectangle((x1, y1), x2-x1, y2-y1, linewidth=1, edgecolor='b', facecolor='none')
-					# ax[1].add_patch(rect)
-					pred_objectness_logits[1][0][a] = 5
-		
-		with open("./new_scores1.npy", 'wb') as f:
-				np.save(f, (pred_objectness_logits[1][0].to("cpu")).numpy())
-		with open("./anchors1.npy", 'wb') as f:
-			np.save(f, (anchors[1].tensor.to("cpu")).numpy())
-
-		###############################################################
-		# FEATURE MAP 2
-		###############################################################
-		n_anchors = len(pred_objectness_logits[2][0])
-		anchor_np = (anchors[2].tensor.to("cpu")).numpy()
-		print("number of anchors:", n_anchors)
-		with open("./original_scores2.npy", 'wb') as f:
-				np.save(f, (pred_objectness_logits[2][0].to("cpu")).numpy())
-		for a in range(n_anchors):
-
-			if pred_objectness_logits[2][0][a]<=0:
-				x1 = anchor_np[a,0]
-				y1 = anchor_np[a,1]
-				x2 = anchor_np[a,2]
-				y2 = anchor_np[a,3]
-				x_center = x1 + (x2-x1)/2
-				y_center = y1 + (y2-y1)/2
-
-				dist = np.linalg.norm(centers-np.array([y_center, x_center]), axis=1)
-				within_range = np.sum(dist<=10)
-				if within_range>0:
-					# rect = patch.Rectangle((x1, y1), x2-x1, y2-y1, linewidth=1, edgecolor='g', facecolor='none')
-					# ax[2].add_patch(rect)
-					pred_objectness_logits[2][0][a] = 5
-
-		with open("./new_scores2.npy", 'wb') as f:
-				np.save(f, (pred_objectness_logits[2][0].to("cpu")).numpy())
-		with open("./anchors2.npy", 'wb') as f:
-			np.save(f, (anchors[2].tensor.to("cpu")).numpy())
-
-		###############################################################
-		# FEATURE MAP 3
-		###############################################################
-		n_anchors = len(pred_objectness_logits[3][0])
-		anchor_np = (anchors[3].tensor.to("cpu")).numpy()
-		print("number of anchors:", n_anchors)
-		with open("./original_scores3.npy", 'wb') as f:
-				np.save(f, (pred_objectness_logits[3][0].to("cpu")).numpy())
-		for a in range(n_anchors):
-
-			if pred_objectness_logits[3][0][a]<=0:
-				x1 = anchor_np[a,0]
-				y1 = anchor_np[a,1]
-				x2 = anchor_np[a,2]
-				y2 = anchor_np[a,3]
-				x_center = x1 + (x2-x1)/2
-				y_center = y1 + (y2-y1)/2
-
-				dist = np.linalg.norm(centers-np.array([y_center, x_center]), axis=1)
-				within_range = np.sum(dist<=10)
-				if within_range>0:
-					# rect = patch.Rectangle((x1, y1), x2-x1, y2-y1, linewidth=1, edgecolor='tab:orange', facecolor='none')
-					# ax[3].add_patch(rect)
-					pred_objectness_logits[3][0][a] = 5
-
-
-		with open("./new_scores3.npy", 'wb') as f:
-				np.save(f, (pred_objectness_logits[3][0].to("cpu")).numpy())
-		with open("./anchors3.npy", 'wb') as f:
-			np.save(f, (anchors[3].tensor.to("cpu")).numpy())
-
-		###############################################################
-		# FEATURE MAP 4
-		###############################################################
-		n_anchors = len(pred_objectness_logits[4][0])
-		anchor_np = (anchors[4].tensor.to("cpu")).numpy()
-		print("number of anchors:", n_anchors)
-		with open("./original_scores4.npy", 'wb') as f:
-				np.save(f, (pred_objectness_logits[4][0].to("cpu")).numpy())
-		for a in range(n_anchors):
-
-			if pred_objectness_logits[4][0][a]<=0:
-				x1 = anchor_np[a,0]
-				y1 = anchor_np[a,1]
-				x2 = anchor_np[a,2]
-				y2 = anchor_np[a,3]
-				x_center = x1 + (x2-x1)/2
-				y_center = y1 + (y2-y1)/2
-
-				dist = np.linalg.norm(centers-np.array([y_center, x_center]), axis=1)
-				within_range = np.sum(dist<=10)
-				if within_range>0:
-					# rect = patch.Rectangle((x1, y1), x2-x1, y2-y1, linewidth=1, edgecolor='gold', facecolor='none')
-					# ax[4].add_patch(rect)
-					pred_objectness_logits[4][0][a] = 5
-
-		with open("./new_scores4.npy", 'wb') as f:
-				np.save(f, (pred_objectness_logits[4][0].to("cpu")).numpy())
-		with open("./anchors4.npy", 'wb') as f:
-			np.save(f, (anchors[4].tensor.to("cpu")).numpy())
-
-		# plt.show()
-		###############################################################
-		# END OF FEATURE MAP ANCHOR EDITS
-		###############################################################
-
-		# print("objectness logits shape for 0 is", len(pred_objectness_logits), "x", len(pred_objectness_logits[0]), "x", len(pred_objectness_logits[0][0])) # 5 x 1 x 182400
-		# print("objectness logits shape for 1 is", len(pred_objectness_logits), "x", len(pred_objectness_logits[1]), "x", len(pred_objectness_logits[1][0])) # 5 x 1 x 45600
-		# print("anchor shape is", len(anchors), 'x', len(anchors[0]), 'x', len(anchors[0][0]), 'x', len(anchors[0][0][0])) # 5 x 182400 x 1 x 1
-		# print("anchor shape is", len(anchors), 'x', len(anchors[1]), 'x', len(anchors[1][0]), 'x', len(anchors[1][0][0])) # 5 x 45600 x 1 x 1
-		# print(anchors)
 		pred_anchor_deltas = [
 			# (N, A*B, Hi, Wi) -> (N, A, B, Hi, Wi) -> (N, Hi, Wi, A, B) -> (N, Hi*Wi*A, B)
 			x.view(x.shape[0], -1, self.anchor_generator.box_dim, x.shape[-2], x.shape[-1])
@@ -680,9 +494,29 @@ class RPN(nn.Module):
 			)
 		else:
 			losses = {}
+
 		proposals = self.predict_proposals(
 			anchors, pred_objectness_logits, pred_anchor_deltas, images.image_sizes
 		)
+
+		# print number of anchors at each feature map
+		print("number of anchors:", len(pred_objectness_logits[0][0]))
+		print("number of anchors:", len(pred_objectness_logits[1][0]))
+		print("number of anchors:", len(pred_objectness_logits[2][0]))
+		print("number of anchors:", len(pred_objectness_logits[3][0]))
+		print("number of anchors:", len(pred_objectness_logits[4][0]))
+
+		# save anchors and scores
+		# all_anchors = torch.tensor([[0,0,0,0]])
+		# all_anchor_scores = torch.tensor([0])
+		# for fm in range(len(anchors)):
+		# 	all_anchors = torch.cat((all_anchors, anchors[fm].tensor.to("cpu")),0)
+		# 	all_anchor_scores = torch.cat((all_anchor_scores, pred_objectness_logits[fm][0].to("cpu")),0)
+		# with open("./allanchors.npy", 'wb') as f:
+		# 	np.save(f, (all_anchors[1:,:]).numpy())
+		# with open("./allanchorscores.npy", 'wb') as f:
+		# 	np.save(f, (all_anchor_scores[1:]).numpy())
+		
 		return proposals, losses
 
 	def predict_proposals(
@@ -707,7 +541,121 @@ class RPN(nn.Module):
 		print("rpn.py, predict_proposals in class RPN: Went through here")
 		with torch.no_grad():
 			pred_proposals = self._decode_proposals(anchors, pred_anchor_deltas)
-			return find_top_rpn_proposals(
+
+			# save predicted proposals and their scores
+			# all_proposals = torch.tensor([[0,0,0,0]])
+			# all_proposal_scores = torch.tensor([0])
+			# for p_tensor in pred_proposals:
+			# 	all_proposals = torch.cat((all_proposals, p_tensor[0].to("cpu")),0)
+			# with open("./allproposals.npy", 'wb') as f:
+			# 	np.save(f, (all_proposals[1:,:]).numpy())
+			# for logits in pred_objectness_logits:
+			# 	all_proposal_scores = torch.cat((all_proposal_scores, logits[0].to("cpu")), 0)
+			# with open("./IoU_scale_scores.npy", 'wb') as f:
+			# 	np.save(f, (all_proposal_scores[1:]).numpy())
+
+			# # read the ground truth coordinates
+			with open("./prevpredictedboxes_iouscaled.npy", 'rb') as f:
+				prevpredictedboxes = np.load(f)
+			# calculate the IoUs between ground truths and each predicted proposal
+			cuda = torch.device('cuda')
+			print('loaded boxes shape:', prevpredictedboxes.shape)
+
+			# prevpredictedboxes[:,2] = prevpredictedboxes[:,0] + prevpredictedboxes[:,2]
+			# prevpredictedboxes[:,3] = prevpredictedboxes[:,1] + prevpredictedboxes[:,3]
+			groundtruths = Boxes((torch.from_numpy(prevpredictedboxes)).to(device=cuda))
+
+			predproposal_ious = torch.tensor([0])
+			for i in range(len(pred_objectness_logits)):
+				predicted_props = Boxes((pred_proposals[i][0]).to(device=cuda))
+				# numpy_file_name = './pairwiseious'+str(i)+'.npy'
+				print('predicted_props shape:', predicted_props.tensor.shape)
+				pairwiseIOU = pairwise_iou(groundtruths, predicted_props)
+				# with open (numpy_file_name, 'wb') as f:
+				# 	np.save(f, pairwiseIOU.to(device='cpu').numpy())
+				if pairwiseIOU.to(device='cpu').numpy().shape[0]+pairwiseIOU.to(device='cpu').numpy().shape[1] == 0:
+					best_ious = torch.zeros(predicted_props.tensor.shape[0]).to(device=cuda)
+				best_ious, _ = torch.max(pairwiseIOU.to(device=cuda), dim=0)
+
+				# predproposal_ious = torch.cat((predproposal_ious, best_ious.to("cpu")), 0)
+				# idxs = (best_ious>=0.5).nonzero(as_tuple=True)
+				# print('best_ious[idxs]', best_ious[idxs])
+				# print('best_ious[idxs].shape', best_ious[idxs].shape)
+
+				# EXPERIMENT 1: Scaling by IoU: multiply the objectness score by the best IoU
+				# pred_objectness_logits[i][0] = torch.mul(pred_objectness_logits[i][0], best_ious)
+				# print('pred_objectness_logits[i][0] shape', pred_objectness_logits[i][0].shape) 
+
+				# EXPERIMENT 2: Setting to IoU: set objectness score to the IoU
+				# pred_objectness_logits[i][0] = best_ious
+
+				# EXPERIMENT 3: Setting to IoU if Score>0: if objectness score>0, set objectness score to the IoU
+				# idxs = (pred_objectness_logits[i][0]>0).nonzero(as_tuple=True)
+				# pred_objectness_logits[i][0][idxs] = best_ious[idxs]
+
+				# EXPERIMENT 4: Scaling by IoU if Score>0: if objectness score>0, scale by IoU
+				# idxs = (pred_objectness_logits[i][0]>0).nonzero(as_tuple=True)
+				# pred_objectness_logits[i][0][idxs] = torch.mul(pred_objectness_logits[i][0][idxs], best_ious[idxs])
+
+				# EXPERIMENT 5: Setting to Max Score if IoU>0.85: if IoU > 0.85, set to the highest objectness score
+				# max_obj_score = torch.max(pred_objectness_logits[i][0])
+				# idxs = (best_ious>=0.85).nonzero(as_tuple=True)
+				# pred_objectness_logits[i][0][idxs] = max_obj_score
+
+				# EXPERIMENT --: Set to IoU if IoU > 0 - No bc IoU and obj scores can be on different scales
+				# 				Penalize IoU = 0
+				# idxs = (best_ious>0).nonzero()
+				# pred_objectness_logits[i][0][idxs] = best_ious[idxs]
+				# idxs = (best_ious==0).nonzero()
+				# pred_objectness_logits[i][0][idxs] = -30
+
+				# EXPERIMENT 6: Discard proposals with IoU < 0.5 - results in fewer proposal boxes which may be beneficial
+				# idxs = (best_ious>=0.5).nonzero()
+				# pred_objectness_logits[i] = torch.t(pred_objectness_logits[i][0][idxs])
+				# pred_proposals[i] = torch.reshape(pred_proposals[i][0][idxs,:], (pred_proposals[i][0][idxs,:].shape[1],pred_proposals[i][0][idxs,:].shape[0],pred_proposals[i][0][idxs,:].shape[2]))
+				# print('shape of original:', pred_proposals[i].shape)
+				# print('shape of edited:', torch.reshape(pred_proposals[i][0][idxs,:], (pred_proposals[i][0][idxs,:].shape[1],pred_proposals[i][0][idxs,:].shape[0],pred_proposals[i][0][idxs,:].shape[2])))
+				# print('shape of edited:', torch.reshape(pred_proposals[i],(1,pred_proposals[i].shape[1],pred_proposals[i].shape[2])))
+				# print('original first box:', pred_proposals[i][0][0])
+				# print('new first box should be same:', torch.reshape(pred_proposals[i],(1,pred_proposals[i].shape[1],pred_proposals[i].shape[2]))[0][0])
+				# pred_objectness_logits[i] = torch.t(pred_objectness_logits[i][0][idxs])
+				# pred_proposals[i] = torch.reshape(pred_proposals[i][0][idxs,:], (pred_proposals[i][0][idxs,:].shape[1],pred_proposals[i][0][idxs,:].shape[0],pred_proposals[i][0][idxs,:].shape[2]))
+
+				# EXPERIMENT 7: Discard proposals with IoU < 0.5 and set to IoU
+				# idxs = (best_ious>=0.5).nonzero()
+				# print('best_ious[idxs] shape', best_ious[idxs].shape)
+				# pred_objectness_logits[i] = torch.t(best_ious[idxs]) # torch.reshape(best_ious[idxs], (1,idxs.shape[0]))
+				# pred_proposals[i] = torch.reshape(pred_proposals[i][0][idxs,:], (pred_proposals[i][0][idxs,:].shape[1],pred_proposals[i][0][idxs,:].shape[0],pred_proposals[i][0][idxs,:].shape[2]))
+
+				# EXPERIMENT 8: Discard proposals with IoU < 0.25 and set to IoU - to allow for some leniency, could also try other thresholds
+				# idxs = (best_ious>=0.25).nonzero()
+				# print('best_ious[idxs] shape', best_ious[idxs].shape)
+				# pred_objectness_logits[i] = torch.t(best_ious[idxs]) # torch.reshape(best_ious[idxs], (1,idxs.shape[0]))
+				# pred_proposals[i] = torch.reshape(pred_proposals[i][0][idxs,:], (pred_proposals[i][0][idxs,:].shape[1],pred_proposals[i][0][idxs,:].shape[0],pred_proposals[i][0][idxs,:].shape[2]))
+
+				# EXPERIMENT --: Could mention taking boxes from past two layers as future work: Discard proposals with IoU < 0.5 but take boxes from past two layers into account (same code as Experiment 6)
+				# idxs = (best_ious>=0.5).nonzero()
+				# pred_objectness_logits[i] = torch.t(pred_objectness_logits[i][0][idxs])
+				# pred_proposals[i] = torch.reshape(pred_proposals[i][0][idxs,:], (pred_proposals[i][0][idxs,:].shape[1],pred_proposals[i][0][idxs,:].shape[0],pred_proposals[i][0][idxs,:].shape[2]))
+
+
+			# save predicted proposals and their scores and their ious
+			'''
+			with open("./original_ious.npy", 'wb') as f:
+				np.save(f, (predproposal_ious[1:]).numpy())
+			predproposals = torch.tensor([[0,0,0,0]])
+			predproposal_scores = torch.tensor([0])
+			for p_tensor in pred_proposals:
+				predproposals = torch.cat((predproposals, p_tensor[0].to("cpu")),0)
+			with open("./iouscaleifpos_predproposals.npy", 'wb') as f:
+				np.save(f, (predproposals[1:,:]).numpy())
+			for logits in pred_objectness_logits:
+				predproposal_scores = torch.cat((predproposal_scores, logits[0].to("cpu")), 0)
+			with open("./iouscaleifpos_predscores.npy", 'wb') as f:
+				np.save(f, (predproposal_scores[1:]).numpy())
+			'''
+
+			topkproposals = find_top_rpn_proposals(
 				pred_proposals,
 				pred_objectness_logits,
 				image_sizes,
@@ -717,6 +665,16 @@ class RPN(nn.Module):
 				self.min_box_size,
 				self.training,
 			)
+			
+			# save top k proposals and their scores for one image
+			for p_instance in topkproposals:
+				with open("./experiment1_proposals.npy", 'wb') as f:
+					np.save(f, ((p_instance.proposal_boxes.tensor).to("cpu")).numpy())
+			for p_instance in topkproposals:
+				with open("./experiment1_topkscores.npy", 'wb') as f:
+					np.save(f, ((p_instance.objectness_logits).to("cpu")).numpy())
+			
+			return topkproposals
 
 	def _decode_proposals(self, anchors: List[Boxes], pred_anchor_deltas: List[torch.Tensor]):
 		"""
