@@ -1,12 +1,6 @@
-**Now**
+**This repository contains an implementation of a modified RPN for segmenting serial image datasets.**
 
-This repository contains a previous version of Detectron2's Mask R-CNN
-
-**Previously**
-
-This repository contains an implementation of a modified RPN for segmenting serial image datasets.
-
-The original Detectron2 repository is [here](https://github.com/facebookresearch/detectron2).
+**The original Detectron2 repository is [here](https://github.com/facebookresearch/detectron2).**
 
 <img src=".github/Detectron2-Logo-Horz.svg" width="300" >
 
